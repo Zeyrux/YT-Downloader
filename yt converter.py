@@ -3,7 +3,7 @@ import os
 import pytube as yt
 import tkinter as tk
 import tkinter.ttk as ttk
-import pathlib
+import multiprocessing
 
 # Variables
 font = "Comic Sans MS"
@@ -37,22 +37,41 @@ listbox: tk.Listbox = None
 button_format: tk.Button = None
 gui_setting: "gui_settings" = None
 
-class gui_settings:
 
-    combobox_value_audio = ["mp3 (recommended)","wav (recommended)", "3gp", "8svx", "aa", "aac", "aax", "act", "aiff", "alac", "amr", "ape", "au", "awb", "cda", "dss", "dvf", "flac", "gsm", "iklax", "ivs", "m4a", "m4b",
-                            "m4b", "mmf", "mpc", "msv", "nmf", "ogg", "oga", "mogg", "opus", "ra", "rm", "raw", "rf64", "sln", "tta", "voc", "vox", "wma", "wv", "webm"]
-    combobox_value_video = ["mp4 (recommended)", "3g2", "3gb", "amv", "asf", "avi", "drc", "flv", "f4v", "f4p", "f4a", "f4b", "gif", "gifv", "m4v", "mkv", "mng", "mov", "qt", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv",
-                            "mpg", "mpeg", "m2v", "MTS", "m2TS", "TS", "mxf", "nsv", "ogv", "ogg", "rm", "rm", "rmvb", "roq", "svi", "viv", "vob", "webm", "wmv", "yuv"]
+class gui_settings:
+    combobox_value_audio = ["mp3 (recommended)", "wav (recommended)", "3gp",
+                            "8svx", "aa", "aac", "aax", "act", "aiff", "alac",
+                            "amr", "ape", "au", "awb", "cda", "dss", "dvf",
+                            "flac", "gsm", "iklax", "ivs", "m4a", "m4b",
+                            "m4b", "mmf", "mpc", "msv", "nmf", "ogg", "oga",
+                            "mogg", "opus", "ra", "rm", "raw", "rf64", "sln",
+                            "tta", "voc", "vox", "wma", "wv", "webm"]
+    combobox_value_video = ["mp4 (recommended)", "3g2", "3gb", "amv", "asf",
+                            "avi", "drc", "flv", "f4v", "f4p", "f4a", "f4b",
+                            "gif", "gifv", "m4v", "mkv", "mng", "mov", "qt",
+                            "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv",
+                            "mpg", "mpeg", "m2v", "MTS", "m2TS", "TS", "mxf",
+                            "nsv", "ogv", "ogg", "rm", "rm", "rmvb", "roq",
+                            "svi", "viv", "vob", "webm", "wmv", "yuv"]
 
     def __init__(self, is_visible: bool):
-        self.label_settings = tk.Label(root, text="Settings ⚙", font=(font, fontSizeN), background=color_background)
+        self.label_settings = tk.Label(root, text="Settings ⚙",
+                                       font=(font, fontSizeN),
+                                       background=color_background)
 
         self.combobox_format_style = ttk.Style()
         print(self.combobox_format_style.theme_names())
         self.combobox_format_style.theme_use("clam")
-        self.combobox_format_style.configure("TCombobox", background=color_button, foreground=color_black, fieldbackground=color_listbox, lightcolor=color_button)
-        self.combobox_format = ttk.Combobox(root, values=self.combobox_value_audio, style="TCombobox")
-        self.combobox_format.option_add("*TCombobox*Listbox*Background", color_listbox)
+        self.combobox_format_style.configure("TCombobox",
+                                             background=color_button,
+                                             foreground=color_black,
+                                             fieldbackground=color_listbox,
+                                             lightcolor=color_button)
+        self.combobox_format = ttk.Combobox(root,
+                                            values=self.combobox_value_audio,
+                                            style="TCombobox")
+        self.combobox_format.option_add("*TCombobox*Listbox*Background",
+                                        color_listbox)
         self.combobox_format.set(value=self.combobox_value_audio[0])
 
         if is_visible:
@@ -85,82 +104,136 @@ class gui_settings:
         return current_format
 
 
-def download(video, path_download: str, is_audio: bool, format: str):
+def download(video, path_download: str, is_audio: bool, format: str) -> tuple:
     if is_audio:
         video = video.streams.filter(only_audio=True).first()
         format_download = ".mp3"
     else:
         video = video.streams.get_highest_resolution()
         format_download = ".mp4"
-    video.download(output_path=path_download, filename=replace_illegal_names(video.title) + "_downloaded_formating" + format_download)
+    video.download(output_path=path_download, filename=replace_illegal_names(
+        video.title) + "_downloaded_formating" + format_download)
     listbox_append("downloaded")
-    format_video(path_download + replace_illegal_names(video.title) + "_downloaded_formating" + format_download, target=path_download + replace_illegal_names(video.title) + "." + format)
-    os.remove(path_download + replace_illegal_names(video.title) + "_downloaded_formating" + format_download)
+    source = path_download + replace_illegal_names(video.title) \
+             + "_downloaded_formating" + format_download
+    target = path_download + replace_illegal_names(video.title) + "." + format
+    listbox_append("Formating..." + source)
+    p = multiprocessing.Process(daemon=True,
+                                target=format_video,
+                                args=[source, target])
+    p.start()
+    return p, target
 
 
 def format_video(source: str, target: str):
-    listbox_append("Formating..." + source)
     os.system(f"ffmpeg -i \"{source}\" \"{target}\"")
-    listbox_append("Formated")
+    os.remove(source)
+
 
 def download_one_mp3():
     print(url)
     video = yt.YouTube(url=url)
-    graphics = new_praefix_label_progressbar_button(name=video.title, new_progressbar=False, präfix="♫")
-    download(video=video, path_download=path_downloads, is_audio=True, format=gui_setting.get_current_format())
+    graphics = new_praefix_label_progressbar_button(name=video.title,
+                                                    new_progressbar=False,
+                                                    präfix="♫")
+    p, target = download(video=video,
+                         path_download=path_downloads,
+                         is_audio=True,
+                         format=gui_setting.get_current_format())
+    p.join()
+    listbox_append(f"Formated: {target}")
     for graphic in graphics:
         graphic.destroy()
 
+
 def download_one_mp4():
     video = yt.YouTube(url=url)
-    graphics = new_praefix_label_progressbar_button(name=video.title, new_progressbar=False, präfix="▶")
-    download(video=video, path_download=path_downloads, is_audio=False, format=gui_setting.get_current_format())
+    graphics = new_praefix_label_progressbar_button(name=video.title,
+                                                    new_progressbar=False,
+                                                    präfix="▶")
+    p, target = download(video=video,
+                         path_download=path_downloads,
+                         is_audio=False,
+                         format=gui_setting.get_current_format())
+    p.join()
+    listbox_append(f"Formated: {target}")
     for graphic in graphics:
         graphic.destroy()
 
 
 def download_playlist_mp3():
     playlist = yt.Playlist(url=url)
-    path_playlist = path_downloads + replace_illegal_names(playlist.title) + "\\"
-    graphics = new_praefix_label_progressbar_button(name=playlist.title, new_progressbar=True, präfix="♫", maximum=playlist.length)
+    path_playlist = path_downloads + replace_illegal_names(
+        playlist.title) + "\\"
+    graphics = new_praefix_label_progressbar_button(name=playlist.title,
+                                                    new_progressbar=True,
+                                                    präfix="♫",
+                                                    maximum=playlist.length)
+    procs = []
     for url_video in playlist:
-        download(video=yt.YouTube(url=url_video), path_download=path_playlist, is_audio=True, format="mp3")
+        procs.append(download(video=yt.YouTube(url=url_video),
+                              path_download=path_playlist,
+                              is_audio=True,
+                              format="mp3"))
         graphics[2]["value"] += 1
         if kill_thread_list[int((graphics[0].grid_info()["row"] + 1) / 2) - 2]:
             break
+    for p, target in procs:
+        p.join()
+        listbox_append(f"Formated: {target}")
     for graphic in graphics:
         graphic.destroy()
 
 
 def download_playlist_mp4():
     playlist = yt.Playlist(url=url)
-    path_playlist = path_downloads + replace_illegal_names(playlist.title) + "\\"
-    graphics = new_praefix_label_progressbar_button(name=playlist.title, new_progressbar=True, präfix="▶", maximum=playlist.length)
+    path_playlist = path_downloads + replace_illegal_names(
+        playlist.title) + "\\"
+    graphics = new_praefix_label_progressbar_button(name=playlist.title,
+                                                    new_progressbar=True,
+                                                    präfix="▶",
+                                                    maximum=playlist.length)
+    procs = []
     for url_video in playlist:
-        download(video=yt.YouTube(url=url_video), path_download=path_playlist, is_audio=False, format="mp4")
+        procs.append(download(video=yt.YouTube(url=url_video),
+                              path_download=path_playlist,
+                              is_audio=False,
+                              format="mp4"))
         graphics[2]["value"] += 1
         if kill_thread_list[int((graphics[0].grid_info()["row"] + 1) / 2) - 2]:
             break
+    for p, target in procs:
+        p.join()
+        listbox_append(f"Formated: {target}")
     for graphic in graphics:
         graphic.destroy()
 
 
-def new_praefix_label_progressbar_button(name: str, new_progressbar: bool, präfix:str, maximum=0):
+def new_praefix_label_progressbar_button(name: str, new_progressbar: bool,
+                                         präfix: str, maximum=0):
     global current_rows
     current_rows += 2
     kill_thread_list.append(False)
-    praefix_label = tk.Label(root, text=präfix, font=(font, fontSizeN), bg=color_background)
-    praefix_label.grid(row=current_rows-1, column=0, padx=10)
-    label = tk.Label(root, text=name, font=(font, fontSizeN), bg=color_background)
-    label.grid(row=current_rows-1, column=1, padx=10)
+    praefix_label = tk.Label(root, text=präfix, font=(font, fontSizeN),
+                             bg=color_background)
+    praefix_label.grid(row=current_rows - 1, column=0, padx=10)
+    label = tk.Label(root, text=name, font=(font, fontSizeN),
+                     bg=color_background)
+    label.grid(row=current_rows - 1, column=1, padx=10)
     if new_progressbar:
-        button = tk.Button(root, text="⌫", font=(font, fontSizeH), bg=color_button, command=lambda: break_download(int(label.grid_info()["row"] + 1), progressbar=progressbar))
-        button.grid(row=current_rows-1, column=2, rowspan=2, sticky="nesw", padx=(0, 10))
+        button = tk.Button(root, text="⌫", font=(font, fontSizeH),
+                           bg=color_button, command=lambda: break_download(
+                int(label.grid_info()["row"] + 1), progressbar=progressbar))
+        button.grid(row=current_rows - 1, column=2, rowspan=2, sticky="nesw",
+                    padx=(0, 10))
         style = ttk.Style()
         style.theme_use("alt")
-        style.configure("Horizontal.TProgressbar", troughcolor=color_background, background=color_listbox)
-        progressbar = ttk.Progressbar(root, style="Horizontal.TProgressbar", maximum=maximum)
-        progressbar.grid(row=current_rows, column=0, columnspan=2, sticky="nesw", padx=10)
+        style.configure("Horizontal.TProgressbar",
+                        troughcolor=color_background, background=color_listbox)
+        progressbar = ttk.Progressbar(root, style="Horizontal.TProgressbar",
+                                      maximum=maximum)
+        progressbar.grid(row=current_rows, column=0, columnspan=2,
+                         sticky="nesw", padx=10)
         return [praefix_label, label, progressbar, button]
     return [praefix_label, label]
 
@@ -168,7 +241,8 @@ def new_praefix_label_progressbar_button(name: str, new_progressbar: bool, präf
 def break_download(row: int, progressbar):
     style = ttk.Style()
     style.theme_use("alt")
-    style.configure("red.Horizontal.TProgressbar", foreground=color_background, background=color_false)
+    style.configure("red.Horizontal.TProgressbar", foreground=color_background,
+                    background=color_false)
     progressbar.config(style="red.Horizontal.TProgressbar")
     kill_thread_list[int((row / 2) - 2)] = True
 
@@ -219,7 +293,8 @@ def change_format():
 def new_thread():
     if url_info != 0:
         listbox_append(msg="start new thread...")
-        thread_list.append(threading.Thread(target=button_download_clicked, daemon=True))
+        thread_list.append(
+            threading.Thread(target=button_download_clicked, daemon=True))
         thread_list[-1].start()
         listbox_append(msg="thread started")
     else:
@@ -248,19 +323,26 @@ def main():
     root.wm_attributes("-transparentcolor", color_transparent)
     root.title("Youtube Downloader ⤓   © Theo Tappe")
 
-    tk.Label(root, text="Youtube Downloader ⤓   © Theo Tappe", font=(font, fontSizeH), bg=color_background).grid(row=0, column=0, columnspan=2, pady=20)
+    tk.Label(root, text="Youtube Downloader ⤓   © Theo Tappe",
+             font=(font, fontSizeH), bg=color_background).grid(row=0, column=0,
+                                                               columnspan=2,
+                                                               pady=20)
 
     entry = tk.Entry(root, font=(font, fontSizeS), bg=color_listbox)
     entry.grid(row=1, column=0, columnspan=2, sticky="nesw", padx=10)
     entry.bind("<KeyRelease>", check_url)
 
-    button_download = tk.Button(root, text="⤓", font=(font, fontSizeH), bg=color_false, command=new_thread)
+    button_download = tk.Button(root, text="⤓", font=(font, fontSizeH),
+                                bg=color_false, command=new_thread)
     button_download.grid(row=1, column=2, sticky="nesw", padx=(0, 10))
 
-    listbox = tk.Listbox(root, font=(font, fontSizeS), width=55, bg=color_listbox)
-    listbox.grid(row=2, column=0, columnspan=2, sticky="nesw", pady=10, padx=10)
+    listbox = tk.Listbox(root, font=(font, fontSizeS), width=55,
+                         bg=color_listbox)
+    listbox.grid(row=2, column=0, columnspan=2, sticky="nesw", pady=10,
+                 padx=10)
 
-    button_format = tk.Button(root, text="♫", font=(font, fontSizeH), bg=color_button, width=5, command=change_format)
+    button_format = tk.Button(root, text="♫", font=(font, fontSizeH),
+                              bg=color_button, width=5, command=change_format)
     button_format.grid(row=2, column=2, sticky="nesw", pady=10, padx=(0, 10))
 
     root.wm_resizable(width=False, height=False)
