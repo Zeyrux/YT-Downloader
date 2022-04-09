@@ -131,7 +131,6 @@ def format_video(source: str, target: str):
 
 
 def download_one_mp3():
-    print(url)
     video = yt.YouTube(url=url)
     graphics = new_praefix_label_progressbar_button(name=video.title,
                                                     new_progressbar=False,
